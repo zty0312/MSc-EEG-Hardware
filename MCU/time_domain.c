@@ -21,7 +21,7 @@
  * standard statistics  (2 features)
  * Arguments    : const double input[proc_frame]
  *                double epochLength
- *                double feature_time_dom[7]
+ *                double feature_time_dom[6]
  * Return Type  : void
  */
 double* time_domain(const double input[proc_frame],  double
