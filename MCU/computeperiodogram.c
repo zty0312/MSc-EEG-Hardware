@@ -3,7 +3,6 @@
  * course requirements at degree granting institutions only.  Not for
  * government, commercial, or other organizational use.
  * File: computeperiodogram.c
- *
  * C/C++ source code generated on  : 07-Jul-2021 14:39:23
  */
 
