@@ -18,8 +18,8 @@
 
 /* Function Definitions */
 /*
- * Spectral Power in Frequency Bands (5 features)
- * Arguments    : const double input[64]
+ * Spectral Power in Frequency Bands (3 features)
+ * Arguments    : const double input[3000]
  *                double fs
  *                double feature_freq_dom[6]
  * Return Type  : void
