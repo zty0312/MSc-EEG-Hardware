@@ -4,7 +4,6 @@
  * government, commercial, or other organizational use.
  * File: computeperiodogram.c
  *
- * MATLAB Coder version            : 5.1
  * C/C++ source code generated on  : 07-Jul-2021 14:39:23
  */
 
