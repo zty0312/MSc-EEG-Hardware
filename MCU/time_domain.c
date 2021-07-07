@@ -3,8 +3,6 @@
  * course requirements at degree granting institutions only.  Not for
  * government, commercial, or other organizational use.
  * File: time_domain.c
- *
- * MATLAB Coder version            : 5.1
  * C/C++ source code generated on  : 05-Jun-2021 08:41:31
  */
 
@@ -15,7 +13,7 @@
 #include <stdio.h>
 
 
-#define proc_frame 6000
+#define proc_frame 3000
 #define fea_vec_frame 6
 /* Function Definitions */
 /*
