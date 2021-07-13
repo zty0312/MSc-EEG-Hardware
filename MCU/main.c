@@ -113,7 +113,8 @@ NRF_CLI_DEF(m_cli_uart,
 #define BTN_CDC_DATA_KEY_RELEASE        (bsp_event_t)(BSP_EVENT_KEY_LAST + 1)
 #define fea_vec_frame 6
 #define SAMPLES_PER_FRAME 12
-#define proc_frame 6000
+#define proc_frame 400
+#define VREF 5
 
 /**
  * @brief Enable power USB detection
@@ -163,13 +164,40 @@ static volatile uint8_t m_active_buffer;
 
 struct ringbuf eegRing;
 static uint8_t ringBuffer[RINGBUF_SIZE];
-
+static double tem[8] = {0};
+static uint8_t debugBuff [EEG_FRAME_SIZE] = {0};
+static uint8_t flag = 0;
 
 
 void process_packet(char * m_rx_buffer)
 {
-	for (int i=0; i<EEG_FRAME_SIZE; i++) 	ringbuf_put( &eegRing, m_rx_buffer[i]);
+	for (int i=0; i<EEG_FRAME_SIZE; i++){
+		ringbuf_put( &eegRing, m_rx_buffer[i]);
+	}
 }
+
+int receive_packet(int idx){ // try using flag
+	int p=0;
+	int k=0;
+	uint32_t val = 0;
+	int32_t i=0;
+	while (ringbuf_elements(&eegRing) > 0){
+	        	debugBuff[idx++] = ringbuf_get(&eegRing); //gets 1 byte at a time .
+	        }
+    if (idx>0){
+        for(p=3;p<217;p+=27){
+        	val = debugBuff[p] << 24;
+        	val = val + (debugBuff[p+1] << 16);
+        	i = (int32_t) (val + (debugBuff[p+2] << 8));
+        	tem[k] =(float) (i);
+        	tem[k] = tem[k]* 2 * VREF / (12*pow(2,32));
+        	k += 1;
+        }
+    }
+    return flag=1;
+}
+
+
 
 
 
@@ -212,7 +240,6 @@ static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
             ret_code_t ret;
             do
             {
-
 				process_packet(m_rx_buffer[m_active_buffer]);
 
                 ret = app_usbd_cdc_acm_read(&m_app_cdc_acm,
@@ -222,6 +249,9 @@ static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
                 NRF_LOG_INFO("frame receive");
 
             } while (ret == NRF_SUCCESS);
+            int idx=0;
+            flag=0;
+            flag = receive_packet(idx);
 
             bsp_board_led_invert(LED_CDC_ACM_RX);
             break;
@@ -328,20 +358,6 @@ static void init_cli(void)
     APP_ERROR_CHECK(ret);
 }
 
-//double majorityElement(double* nums, int numsSize) {
-//   double count=0,result=nums[0];
-//
-//   for(int i=0;i<numsSize;i++)
-//   {
-//       nums[i]==result ?count++:count--;
-//       if(!count)
-//       {
-//        result=nums[i];
-//          count++;
-//       }
-//   }
-//   return result;
-//}
 
 
 
@@ -349,25 +365,24 @@ int main(void)
 {
     ret_code_t ret;
 	ringbuf_init (&eegRing, ringBuffer, RINGBUF_SIZE);
-	uint8_t idx;
-	uint8_t p = 2;
-	uint8_t VREF = 5;
-	uint8_t debugBuff [EEG_FRAME_SIZE] = {0};
+	uint8_t idx=0;
+	uint8_t p = 0;
+	//uint8_t VREF = 5;
+	//uint8_t debugBuff [EEG_FRAME_SIZE] = {0};
 	uint32_t val = 0;
-	//double* feature_time_dom;
 	double res[proc_frame] = {0};
 	double feature_vec[fea_vec_frame] = {0};
+
 	double *p_fea = 0;
-	double tem=0;
-	//double out[proc_frame] = {0};
+	int temp=0;
 	int32_t i = 0;
 	int k = 0;
-	int N_coe = 23;
-	double coe[23]={-0.00721228495268340,0.00694879918830175,	0.0315716518132703,	0.0550962141511825,
-			0.0509946868303976,	0.00753853972032553,	-0.0502781439611508,-0.0682091000322473,-0.00291397395931581,
-			0.135156077398719,0.276340313183522,	0.335993883039056,0.276340313183522,0.135156077398719,
-			-0.00291397395931581,-0.0682091000322473,-0.0502781439611508,	0.00753853972032553,	0.0509946868303976,
-			0.0550962141511825,	0.0315716518132703,	0.00694879918830175,	-0.00721228495268340};
+	//int N_coe = 23;
+//	double coe[23]={-0.00721228495268340,0.00694879918830175,	0.0315716518132703,	0.0550962141511825,
+//			0.0509946868303976,	0.00753853972032553,	-0.0502781439611508,-0.0682091000322473,-0.00291397395931581,
+//			0.135156077398719,0.276340313183522,	0.335993883039056,0.276340313183522,0.135156077398719,
+//			-0.00291397395931581,-0.0682091000322473,-0.0502781439611508,	0.00753853972032553,	0.0509946868303976,
+//			0.0550962141511825,	0.0315716518132703,	0.00694879918830175,	-0.00721228495268340};
 
 	// for version 0 use
 	int j = 0;
@@ -376,18 +391,11 @@ int main(void)
 	char feature_vec_tx[fea_vec_frame*3] = {0};
 
 
-	// for classification use
-//	double stage_pred[564]={0};
-//	int idx0=0;
-//	int idx1=0;
-//	double label[94]={5};
-//	double pred=5;
-//	char pred_tx[1] = {5};
-
 
     static const app_usbd_config_t usbd_config = {
         .ev_state_proc = usbd_user_ev_handler
     };
+    //cdc_acm_user_ev_handler
 
     ret = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(ret);
@@ -461,81 +469,34 @@ int main(void)
         // I've assumed you want to read in all the samples into a buffer and then process it
         // but feel free to change this. 27 is the number of bytes in one sample.
         ///////////////////////////////////////////////////////////////////////
-        idx=0;
-        while (ringbuf_elements(&eegRing) > 0) //It should be safe to read all the samples, but if concerned change 0 to 27
-        {
-        	//This is dummy code for testing:
-        	debugBuff[idx++] = ringbuf_get(&eegRing); //gets 1 byte at a time .
-        	//The actual samples are 3 bytes long (24 bit big endian) and there are 9 3  byte words per sample
+        k=0;
+        if(flag==1){
+        	while(k<8){
+        		res[i] = tem[k];
+        		k += 1;
+        		i += 1;
+        	}
+        	flag=2;
         }
-        if (idx>0){
-            for(p=3;p<217;p+=27){
-            	val = debugBuff[p] << 24;
-            	val = val + (debugBuff[p+1] << 16);
-            	i = (int32_t) (val + (debugBuff[p+2] << 8));
-            	res[k] =(float) (i);
-            	res[k] = res[k]* 2 * VREF / (12*pow(2,32));
-            	for (i = k; i >= 0; i--) {
-            		tem +=coe[k-i] *res[i];
-            	    //out[k] += coe[k-i] *res[i];
-            	}
-            	for (i= N_coe-1; i > k; i--) {
-            		tem +=coe[k-i] *res[i];
-            		//out[k] += coe[N_coe+k-i]*res[i];
-            	}
-            	res[k]=tem;
-            	k += 1;
-            }
-
-            ///////////////////////////////////////////////////////////////////////
-            //              version 0: classify on the computer                  //
-            ///////////////////////////////////////////////////////////////////////
-            if(k==6000){
-        		p_fea = time_domain(res, feature_vec);
-        		p_fea = freq_domain(res,200, feature_vec);
-        		//data transformation
-        		for (j=0;j<6;j++){
-        			feature_vec[j] = feature_vec[j] * 12 * pow(2, 24) / (2 * VREF);
-        			b[j] = (int32_t) feature_vec[j];
-        			c[j] = (uint32_t) b[j];
-        			feature_vec_tx[(j % 6)*3] =(c[j] >> 24) % 256;
-        			feature_vec_tx[(j % 6)*3+1] =(c[j] >> 16) % 256;
-        			feature_vec_tx[(j % 6)*3+2] =(c[j] >> 8) % 256;
-        		}
-        		ret = app_usbd_cdc_acm_write(&m_app_cdc_acm, feature_vec_tx, 18);
-        		k=0;
-            }
-
-            ///////////////////////////////////////////////////////////////////////
-            //                 version 1: CLASSIFICATION PART                    //
-            ///////////////////////////////////////////////////////////////////////
-//            if(k==64){
-//              p_fea = time_domain(out,6000, feature_vec);
-//              p_fea = freq_domain(out,200, feature_vec);
-//              if(idx0==94){
-//            	  classifyX(stage_pred, label);
-//            	  //pred=majorityElement(label, 94);
-////            	  pred = label[0];
-//            	  pred_tx[0] = *(&label[0]);
-//            	  ret = app_usbd_cdc_acm_write(&m_app_cdc_acm, pred_tx[0], 1);
-//            	  idx0=0;
-//              }
-//              else{
-//            	  for (idx1 = 0; idx1 < 6; idx1++) {
-//            		  stage_pred[idx0 + 94 * idx1] = feature_vec[idx1];
-//            	  }
-//            	  idx0=idx0+1;
-//              }
-//              k=0;
-//            }
-
+        if(i==400){
+    		p_fea = time_domain(res, feature_vec);
+    		p_fea = freq_domain(res,200, feature_vec);
+    		memset(res,0,sizeof(double)*proc_frame);
+    		i=0;
+    		for (j=0;j<6;j++){
+    			feature_vec[j] = feature_vec[j] * 12 * pow(2, 24) / (2 * VREF);
+    			b[j] = (int32_t) feature_vec[j];
+    			c[j] = (uint32_t) b[j];
+    			feature_vec_tx[(j % 6)*3] =(c[j] >> 24) % 256;
+    			feature_vec_tx[(j % 6)*3+1] =(c[j] >> 16) % 256;
+    			feature_vec_tx[(j % 6)*3+2] =(c[j] >> 8) % 256;
+    		}
+    		ret = app_usbd_cdc_acm_write(&m_app_cdc_acm, feature_vec_tx, 18);
+    		temp=temp+1;
         }
-
-//        if (idx>0)
-//        {
-////        	NRF_LOG_INFO("Idx is %d",idx);
-////        	NRF_LOG_HEXDUMP_INFO(debugBuff, idx);  //NB would need to increase the buffer size or number of buffers to fully printout
-//        	ret = app_usbd_cdc_acm_write(&m_app_cdc_acm, debugBuff, idx); //sending the buffer out over usb cdc
+//        if(temp == 3){
+//        	while(1){
+//        	}
 //        }
 
         UNUSED_RETURN_VALUE(NRF_LOG_PROCESS());
